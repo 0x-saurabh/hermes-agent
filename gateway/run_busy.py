@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 import asyncio
 import contextlib
 import contextvars
+import copy
 import functools
 import json
 import os
@@ -1645,8 +1646,16 @@ class GatewayBusySessionMixin:
             counter = self._slash_confirm_counter = _itertools.count(1)
         confirm_id = f"{next(counter)}"
 
+        def _authorize(user_id: Optional[str]) -> bool:
+            # Answering runs ``command`` ("always" may also persist an opt-out): whoever answers,
+            # typed or by any adapter's button, must be allowed to run it in this chat. A shallow
+            # copy keeps the routing identity pinned on the source (the policy's owning profile).
+            answerer = copy.copy(source)
+            answerer.user_id = user_id
+            return self._check_slash_access(answerer, command.lstrip("/")) is None
+
         # Register FIRST so a fast button click cannot race the send_slash_confirm return.
-        _slash_confirm_mod.register(session_key, confirm_id, command, handler)
+        _slash_confirm_mod.register(session_key, confirm_id, command, handler, authorize=_authorize)
 
         adapter = self._delivery_adapter_for(source)
         metadata = self._thread_metadata_for_source(source, self._reply_anchor_for_event(event))
