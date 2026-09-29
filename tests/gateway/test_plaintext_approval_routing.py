@@ -141,7 +141,7 @@ def test_plaintext_approval_obeys_the_slash_admin_gate():
     form: a non-admin's "always" must not resolve the approval (it would write the profile-wide
     allowlist), while an admin's bare word still does."""
     _clear_approval_state()
-    runner, adapter = _make_runner()
+    runner, _adapter = _make_runner()
     runner.config = GatewayConfig(platforms={Platform.TELEGRAM: PlatformConfig(
         enabled=True, token="***", extra={"allow_admin_from": ["admin1"]})})
     session_key, entry = _register_blocking_approval(runner)
@@ -154,3 +154,35 @@ def test_plaintext_approval_obeys_the_slash_admin_gate():
     assert asyncio.run(runner._handle_active_session_busy_message(admin_event, session_key)) is True
     assert entry.event.is_set() and entry.result == "once"
     _clear_approval_state()
+
+
+def _gated_runner(user_id: str):
+    """Runner with slash gating on (``allow_admin_from``) and an event from ``user_id``."""
+    from dataclasses import replace
+    runner, _adapter = _make_runner()
+    runner.config.platforms[Platform.TELEGRAM].extra["allow_admin_from"] = ["admin1"]
+    event = _make_event("always")
+    event.source = replace(event.source, user_id=user_id)
+    return runner, event
+
+
+@pytest.mark.parametrize("user_id, resolves", [("admin1", True), ("member2", False)])
+def test_slash_confirm_reply_obeys_the_confirmed_commands_gate(user_id, resolves):
+    """Answering a slash-confirm prompt runs the confirmed command ('always' also persists the
+    opt-out to config.yaml): only someone allowed to run that command may answer it."""
+    from tools import slash_confirm
+
+    runner, event = _gated_runner(user_id)
+    session_key = runner._session_key_for_source(event.source)
+    choices = []
+
+    async def _handler(choice):
+        choices.append(choice)
+        return "done"
+
+    slash_confirm.register(session_key, "1", "reset", _handler)
+    try:
+        asyncio.run(runner._hm_slash_confirm_reply(event, session_key))
+    finally:
+        slash_confirm.clear(session_key)
+    assert bool(choices) is resolves
