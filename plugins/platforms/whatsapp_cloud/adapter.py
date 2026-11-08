@@ -928,8 +928,10 @@ class WhatsAppCloudAdapter(WhatsAppBehaviorMixin, BasePlatformAdapter):
         approval = _optional_module("tools.approval", "[whatsapp_cloud] approval resolver unavailable")
         # A tap is /approve or /deny: a tapper (``to``, DMs only) the slash policy refuses leaves it live.
         pending_key = self._exec_approval_state.get(approval_id)
-        if approval is not None and pending_key and not approval.gateway_approval_answer_allowed(pending_key, to, choice):
+        refusal = approval is not None and pending_key and approval.gateway_approval_refusal(pending_key, to, choice)
+        if refusal:
             logger.warning("[whatsapp_cloud] approval tap by %s refused by slash policy", to)
+            await self._reply_best_effort(to, refusal, "[whatsapp_cloud] approval refusal reply failed")
             return True
         session_key = self._pop_tap_state(
             self._exec_approval_state, approval_id,

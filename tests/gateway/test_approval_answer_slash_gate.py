@@ -50,7 +50,7 @@ def pending(request):
 
     def arm(platform, admins, session_key, chat_type="dm"):
         turn = _turn(platform, admins, session_key, chat_type)
-        approval.register_gateway_notify(session_key, lambda _data: None, may_answer=turn._approval_answer_allowed)
+        approval.register_gateway_notify(session_key, lambda _data: None, may_answer=turn._approval_answer_refusal)
         entry = _ApprovalEntry({"command": "rm -rf /srv/data"})
         approval._gateway_queues.setdefault(session_key, []).append(entry)
         keys.append(session_key)
@@ -69,20 +69,20 @@ def test_turn_runner_registers_the_gate_for_its_turn_only():
     seen = []
 
     def run(_message, **_kwargs):
-        seen.append({uid: approval.gateway_approval_answer_allowed(key, uid, "once") for uid in (ADMIN, MEMBER)})
-        seen.append(approval.gateway_approval_answer_allowed(key, MEMBER, "deny"))
+        seen.append({uid: approval.gateway_approval_refusal(key, uid, "once") is None for uid in (ADMIN, MEMBER)})
+        seen.append(approval.gateway_approval_refusal(key, MEMBER, "deny") is None)
         return {"final_response": "ok"}
 
     turn._run_conversation_with_approval(SimpleNamespace(run_conversation=run), [], None, None, None)
     assert seen == [{ADMIN: True, MEMBER: False}, False]
-    assert approval.gateway_approval_answer_allowed(key, MEMBER, "once") is True
+    assert approval.gateway_approval_refusal(key, MEMBER, "once") is None
 
 
 def test_ungated_chat_keeps_every_admitted_member_answering(pending):
     """No ``allow_admin_from``: the gate is off, as before."""
     key = "agent:main:telegram:dm:open"
     entry = pending(Platform.TELEGRAM, [], key)
-    assert approval.gateway_approval_answer_allowed(key, MEMBER, "always") is True
+    assert approval.gateway_approval_refusal(key, MEMBER, "always") is None
     assert entry.result is None
 
 
@@ -91,8 +91,8 @@ def test_user_allowed_commands_lets_a_listed_member_approve():
     key = "agent:main:telegram:dm:c1"
     turn = _turn(Platform.TELEGRAM, [ADMIN], key)
     turn._runner.config.platforms[Platform.TELEGRAM].extra["user_allowed_commands"] = ["approve"]
-    assert turn._approval_answer_allowed(MEMBER, "approve") is True
-    assert turn._approval_answer_allowed(MEMBER, "deny") is False
+    assert turn._approval_answer_refusal(MEMBER, "approve") is None
+    assert "/deny is admin-only" in turn._approval_answer_refusal(MEMBER, "deny")
 
 
 # ── Telegram inline keyboard ─────────────────────────────────────────────
@@ -119,6 +119,7 @@ def test_telegram_button(pending, monkeypatch):
     refused = click(MEMBER)
     assert entry.result is None and adapter._approval_state.get(5) == key
     refused.edit_message_text.assert_not_awaited()
+    assert "/approve is admin-only" in refused.answer.await_args.kwargs["text"]
     click(ADMIN)
     assert entry.result == "always"
 
@@ -178,7 +179,7 @@ def test_discord_button(pending, monkeypatch):
         refused = interaction(MEMBER)
         await view._resolve(refused, "always", 2, "platform.discord.approval.resolved_always")
         assert entry.result is None and not view.resolved
-        refused.response.send_message.assert_awaited_once()
+        assert "/approve is admin-only" in refused.response.send_message.await_args.args[0]
         await view._resolve(interaction(ADMIN), "once", 2, "platform.discord.approval.resolved_once")
         assert entry.result == "once"
 

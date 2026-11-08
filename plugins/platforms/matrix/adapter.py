@@ -2545,11 +2545,12 @@ class MatrixAdapter(BasePlatformAdapter):
             choices=self._approval_reaction_map)
         if choice is None:
             return handled
-        from tools.approval import gateway_approval_answer_allowed
+        from tools.approval import gateway_approval_refusal
         # A reaction is /approve or /deny: a reactor the chat's slash policy refuses leaves it live.
-        if not gateway_approval_answer_allowed(prompt.session_key, sender, choice):
+        refusal = gateway_approval_refusal(prompt.session_key, sender, choice)
+        if refusal:
             logger.info("Matrix: approval reaction from %s refused by slash policy", sender)
-            await self._send_invalid_reaction_feedback(room_id, reacts_to, t("platform.matrix.reaction.unauthorized"))
+            await self._send_invalid_reaction_feedback(room_id, reacts_to, refusal)
             return True
         try:
             from tools.approval import resolve_gateway_approval_card

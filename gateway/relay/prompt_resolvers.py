@@ -24,9 +24,9 @@ def may_answer_prompt(pending: dict[str, Any], answered_by: Optional[str], optio
     consumed (clarify: always)."""
     session_key = str(pending.get("session_key") or "")
     if pending.get("kind") == "exec_approval":
-        from tools.approval import gateway_approval_answer_allowed
+        from tools.approval import gateway_approval_refusal
 
-        return gateway_approval_answer_allowed(session_key, answered_by, option_id)
+        return gateway_approval_refusal(session_key, answered_by, option_id) is None
     if pending.get("kind") != "slash_confirm":
         return True
     from tools import slash_confirm as slash_confirm_mod

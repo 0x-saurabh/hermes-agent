@@ -5625,10 +5625,10 @@ class SlackAdapter(BasePlatformAdapter):
             return
         team_id, action_id, session_key, message, msg_ts, channel_id, user_name, user_id = started
         choice = self._APPROVAL_CHOICES.get(action_id, "deny")
-        from tools.approval import gateway_approval_answer_allowed
+        from tools.approval import gateway_approval_refusal
         # A click is /approve or /deny: a clicker the chat's slash policy refuses is ignored like any
         # unauthorized click, and the card stays live for someone allowed.
-        if not gateway_approval_answer_allowed(session_key, user_id, choice):
+        if gateway_approval_refusal(session_key, user_id, choice):
             logger.warning("[Slack] approval click by %s (%s) refused by slash policy", user_name, user_id)
             return
         # Double-click guard (atomic pop). Also accept the bare ts: the approval may
