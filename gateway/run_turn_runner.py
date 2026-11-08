@@ -8,7 +8,6 @@ keeps intercepting them at call time.
 from __future__ import annotations
 
 import asyncio
-import copy
 import dataclasses
 import json
 import logging
@@ -710,9 +709,8 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
         """A button or reaction answer is ``/approve`` / ``/deny``: the clicker must pass the same
         slash policy in this chat (``allow_admin_from`` / ``user_allowed_commands``). Returns the
         slash gate's refusal text, or None when allowed."""
-        answerer = copy.copy(self._ctx.source)
-        answerer.user_id = user_id
-        return self._runner._check_slash_access(answerer, verb)
+        from gateway.session_identity import replace_source
+        return self._runner._check_slash_access(replace_source(self._ctx.source, user_id=user_id), verb)
 
     def _approval_notify_sync(self, approval_data: dict) -> None:
         if self._approval_owner is not None:
