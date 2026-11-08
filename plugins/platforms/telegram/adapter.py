@@ -4758,6 +4758,13 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
         except (ValueError, IndexError):
             await query.answer(text=_toast("platform.telegram.approval.toast_invalid_data"))
             return
+        from tools.approval import gateway_approval_answer_allowed
+        # A tap is /approve or /deny: a clicker the chat's slash policy refuses gets the
+        # unauthorized toast and the card stays live for someone allowed.
+        pending_key = self._approval_state.get(approval_id)
+        if pending_key and not gateway_approval_answer_allowed(pending_key, getattr(query.from_user, "id", None), choice):
+            await query.answer(text=_unauthorized())
+            return
         session_key = await self._claim_callback_state(
             query, cb, self._approval_state, approval_id, _unauthorized(),
             _toast("platform.telegram.approval.toast_already_resolved"))

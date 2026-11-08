@@ -95,6 +95,12 @@ def build_exec_approval_view(discord, base, *, unauthorized):
                 unauth_msg=unauthorized(),
             ):
                 return
+            from tools.approval import gateway_approval_answer_allowed
+            # A click is /approve or /deny: a clicker the chat's slash policy refuses is turned away
+            # like any unauthorized click, and the card stays live for someone allowed.
+            if not gateway_approval_answer_allowed(self.session_key, getattr(interaction.user, "id", None), choice):
+                await interaction.response.send_message(unauthorized(), ephemeral=True)
+                return
             label = t(label_key)
             self.resolved = True
             self._backend_settled = True

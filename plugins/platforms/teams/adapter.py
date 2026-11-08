@@ -58,6 +58,7 @@ from gateway.config import Platform, PlatformConfig
 from gateway.platforms.helpers import MessageDeduplicator
 from gateway.platforms.base import (
     gateway_trust_env, BasePlatformAdapter, ExecApprovalPrompt, SendResult, cache_image_from_url, cache_media_bytes_async,
+    unauthorized_action_notice,
 )
 from gateway.platforms.base_exec_approval import approval_timeout_seconds, format_approval_deadline_line
 from agent.i18n import t
@@ -636,7 +637,7 @@ class TeamsAdapter(BasePlatformAdapter):
     async def _on_card_action(
         self, ctx: ActivityContext[AdaptiveCardInvokeActivity]
     ) -> InvokeResponse[AdaptiveCardActionMessageResponse]:
-        from tools.approval import has_blocking_approval, resolve_gateway_approval_card
+        from tools.approval import gateway_approval_answer_allowed, has_blocking_approval, resolve_gateway_approval_card
 
         data = ctx.activity.value.action.data or {}
         hermes_action = data.get("hermes_action", "")
@@ -649,6 +650,11 @@ class TeamsAdapter(BasePlatformAdapter):
         choice = _APPROVAL_CHOICES.get(hermes_action)
         if not choice:
             return self._invoke_message(t("platform.teams.approval.unknown_action"))
+        # A click is /approve or /deny: the clicker (the inbound ``user_id``) must pass the slash policy.
+        from_account = ctx.activity.from_
+        clicker = getattr(from_account, "aad_object_id", None) or getattr(from_account, "id", "")
+        if not gateway_approval_answer_allowed(session_key, clicker, choice):
+            return self._invoke_message(unauthorized_action_notice("Teams"))
         # Cards from an older build carry cmd/desc in the button data instead.
         cmd, desc = self._approval_previews.get(data.get("prompt_id", ""), (data.get("cmd", ""), data.get("desc", "")))
         if not has_blocking_approval(session_key) or not resolve_gateway_approval_card(
