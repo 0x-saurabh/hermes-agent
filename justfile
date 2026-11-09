@@ -36,3 +36,8 @@ lint-tests:
 [group('lint js')]
 lint-shared:
     @cd apps/shared && pnpm exec eslint ./
+
+# Carry the current branch across the module moves on origin/main (args: --continue, --abort, --onto REF, --push)
+[group('move')]
+migrate-branch *args:
+    @scripts/run-in-hermes-env python scripts/move/migrate_branch.py {{args}}
