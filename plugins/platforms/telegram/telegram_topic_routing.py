@@ -101,6 +101,13 @@ class TelegramTopicRoutingMixin:
                     self.name, getattr(message, "message_id", "?"), created_thread_id, key[0])
         return created_thread_id
 
+    def _is_ignored_root_dm(self, message: Any, *, is_command: bool) -> bool:
+        """``extra.ignore_root_dm``: a non-command root-DM message (no topic) from a chat with ``dm_topics``
+        configured is dropped, so the root DM is a command lobby; other chats are unaffected."""
+        return (bool(self.config.extra.get("ignore_root_dm", False)) and not is_command
+                and self._effective_message_thread_id(message) is None
+                and self._chat_id_str(message) in self._dm_topic_chat_ids)
+
     def _text_batch_key(self, event: Any) -> str:
         """Session-scoped batching key; topic recovery first so DM-topic batches coalesce on the recovered lane."""
         self._apply_topic_recovery(event)
