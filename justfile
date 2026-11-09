@@ -36,3 +36,7 @@ lint-tests:
 [group('lint js')]
 lint-shared:
     @cd apps/shared && pnpm exec eslint ./
+
+[group('move')]
+move-rewrite commit *args:
+    @scripts/run-in-hermes-env python scripts/move/rewrite_imports.py --from-commit {{commit}} {{args}}
