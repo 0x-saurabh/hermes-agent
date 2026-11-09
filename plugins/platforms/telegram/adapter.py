@@ -2904,6 +2904,8 @@ class TelegramAdapter(TelegramHeldInboundMixin, TelegramTopicRoutingMixin, BaseP
         app.add_handler(TelegramMessageHandler(filters.COMMAND, self._handle_command))
         app.add_handler(TelegramMessageHandler(
             filters.LOCATION | getattr(filters, "VENUE", filters.LOCATION), self._handle_location_message))
+        from plugins.platforms.telegram.telegram_dice import handle_dice_message
+        app.add_handler(TelegramMessageHandler(filters.Dice.ALL, lambda u, c: handle_dice_message(self, u, c)))
         app.add_handler(TelegramMessageHandler(
             filters.PHOTO | filters.VIDEO | filters.VIDEO_NOTE | filters.AUDIO | filters.VOICE | filters.Document.ALL | filters.Sticker.ALL,
             self._handle_media_message))

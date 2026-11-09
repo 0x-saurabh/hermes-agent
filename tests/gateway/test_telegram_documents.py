@@ -306,7 +306,7 @@ class TestVideoDownloadBlock:
             **{name: _Names(name) for name in ("TEXT", "COMMAND", "LOCATION", "VENUE", "PHOTO", "VIDEO",
                                                 "VIDEO_NOTE", "AUDIO", "VOICE")},
             Document=SimpleNamespace(ALL=_Names("DOCUMENT")), Sticker=SimpleNamespace(ALL=_Names("STICKER")),
-            StatusUpdate=None)
+            Dice=SimpleNamespace(ALL=_Names("DICE")), StatusUpdate=None)
         registered = {}
         with patch.multiple("plugins.platforms.telegram.adapter", filters=fake_filters,
                             TelegramMessageHandler=lambda flt, callback: registered.setdefault(callback, flt)):
